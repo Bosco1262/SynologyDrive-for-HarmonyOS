@@ -1,4 +1,10 @@
-import { DriveEntry, SchedulerCheckpoint, Snapshot, SyncTaskState } from "../types";
+import {
+  DriveEntry,
+  SchedulerCheckpoint,
+  Snapshot,
+  SyncTaskState,
+  TransferCheckpoint,
+} from "../types";
 
 const cloneEntry = (entry: DriveEntry): DriveEntry => ({ ...entry });
 
@@ -8,6 +14,7 @@ export class MetadataStore {
   private cursor = 0;
   private taskState = new Map<string, SyncTaskState>();
   private schedulerCheckpoint?: SchedulerCheckpoint;
+  private transferCheckpoint = new Map<string, TransferCheckpoint>();
 
   getLocalSnapshot(): Snapshot {
     return { entries: new Map([...this.localEntries].map(([k, v]) => [k, cloneEntry(v)])) };
@@ -58,6 +65,17 @@ export class MetadataStore {
     return state ? { ...state } : undefined;
   }
 
+  getAllTaskStates(): SyncTaskState[] {
+    return [...this.taskState.values()].map((state) => ({ ...state }));
+  }
+
+  setAllTaskStates(states: Iterable<SyncTaskState>): void {
+    this.taskState.clear();
+    for (const state of states) {
+      this.taskState.set(state.id, { ...state });
+    }
+  }
+
   setSchedulerCheckpoint(checkpoint: SchedulerCheckpoint): void {
     this.schedulerCheckpoint = {
       paused: checkpoint.paused,
@@ -73,5 +91,22 @@ export class MetadataStore {
       paused: this.schedulerCheckpoint.paused,
       queuedTaskIds: [...this.schedulerCheckpoint.queuedTaskIds],
     };
+  }
+
+  setTransferCheckpoint(checkpoint: TransferCheckpoint): void {
+    this.transferCheckpoint.set(checkpoint.path, { ...checkpoint });
+  }
+
+  getTransferCheckpoint(path: string): TransferCheckpoint | undefined {
+    const checkpoint = this.transferCheckpoint.get(path);
+    return checkpoint ? { ...checkpoint } : undefined;
+  }
+
+  clearTransferCheckpoint(path: string): void {
+    this.transferCheckpoint.delete(path);
+  }
+
+  listTransferCheckpoints(): TransferCheckpoint[] {
+    return [...this.transferCheckpoint.values()].map((checkpoint) => ({ ...checkpoint }));
   }
 }

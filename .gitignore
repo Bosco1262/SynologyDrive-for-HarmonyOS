@@ -1,3 +1,7 @@
 node_modules/
 dist/
 coverage/
+.hvigor/
+hvigor/wrapper/
+oh_modules/
+local.properties

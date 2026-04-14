@@ -1,4 +1,5 @@
 import { DriveApiGateway } from "../api/driveApiGateway";
+import { MetadataStore } from "../storage/metadataStore";
 import { DriveEntry } from "../types";
 
 export interface ChunkTransferOptions {
@@ -25,7 +26,30 @@ export class ChunkTransferManager {
     return (entry.size ?? 0) >= this.options.thresholdSize;
   }
 
-  async upload(api: DriveApiGateway, entry: DriveEntry): Promise<void> {
+  async upload(api: DriveApiGateway, entry: DriveEntry, metadata?: MetadataStore): Promise<void> {
+    if (this.shouldUseChunking(entry) && api.uploadEntryChunk) {
+      const size = Math.max(0, entry.size ?? 0);
+      const checkpoint = metadata?.getTransferCheckpoint(entry.path);
+      let uploadedBytes = checkpoint?.uploadedBytes ?? 0;
+      while (uploadedBytes < size) {
+        const uploaded = await api.uploadEntryChunk(entry, uploadedBytes, this.options.chunkSize);
+        if (uploaded <= 0) {
+          break;
+        }
+        uploadedBytes += uploaded;
+        metadata?.setTransferCheckpoint({
+          path: entry.path,
+          chunkSize: this.options.chunkSize,
+          totalSize: size,
+          uploadedBytes,
+          updatedAt: Date.now(),
+        });
+      }
+      if (uploadedBytes >= size) {
+        metadata?.clearTransferCheckpoint(entry.path);
+      }
+      return;
+    }
     if (this.shouldUseChunking(entry) && api.uploadEntryInChunks) {
       await api.uploadEntryInChunks(entry, this.options.chunkSize);
       return;

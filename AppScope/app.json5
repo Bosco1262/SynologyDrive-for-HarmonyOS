@@ -1,0 +1,9 @@
+{
+  "app": {
+    "bundleName": "com.bosco.synologydrive",
+    "vendor": "bosco",
+    "versionCode": 1000000,
+    "versionName": "1.0.0",
+    "label": "Synology Drive Harmony"
+  }
+}

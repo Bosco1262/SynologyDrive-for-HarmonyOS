@@ -33,3 +33,23 @@ export interface SchedulerCheckpoint {
   paused: boolean;
   queuedTaskIds: string[];
 }
+
+export type DriveApiErrorCode = "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "NOT_FOUND";
+
+export class DriveApiError extends Error {
+  constructor(
+    public readonly code: DriveApiErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "DriveApiError";
+  }
+}
+
+export interface TransferCheckpoint {
+  path: string;
+  chunkSize: number;
+  totalSize: number;
+  uploadedBytes: number;
+  updatedAt: number;
+}

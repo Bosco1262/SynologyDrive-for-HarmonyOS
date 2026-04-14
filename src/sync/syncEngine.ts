@@ -170,7 +170,7 @@ export class SyncEngine {
 
   private async throttledUpsert(entry: DriveEntry): Promise<void> {
     await this.speedLimiter.throttle(entry.size ?? 0);
-    await this.chunkTransfer.upload(this.deps.api, entry);
+    await this.chunkTransfer.upload(this.deps.api, entry, this.deps.metadata);
   }
 
   private async throttledDelete(path: string, bytes: number): Promise<void> {
