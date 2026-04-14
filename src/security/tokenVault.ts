@@ -1,5 +1,5 @@
 export class TokenVault {
-  private token?: string;
+  private token: string | undefined;
 
   setToken(token: string): void {
     if (!token || token.trim().length < 8) {
@@ -16,4 +16,3 @@ export class TokenVault {
     this.token = undefined;
   }
 }
-
