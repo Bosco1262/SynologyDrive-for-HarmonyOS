@@ -57,4 +57,3 @@ export class MetadataStore {
     return state ? { ...state } : undefined;
   }
 }
-

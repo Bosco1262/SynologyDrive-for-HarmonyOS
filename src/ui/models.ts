@@ -9,4 +9,3 @@ export interface SyncTaskViewState {
   progress: number;
   latestMessage?: string;
 }
-

@@ -52,4 +52,3 @@ export class InMemoryDriveApiGateway implements DriveApiGateway {
     return this.nextCursor - 1;
   }
 }
-

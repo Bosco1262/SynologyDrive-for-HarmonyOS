@@ -9,4 +9,3 @@ export function buildSnapshot(entries: Iterable<DriveEntry>): Snapshot {
   }
   return { entries: map };
 }
-

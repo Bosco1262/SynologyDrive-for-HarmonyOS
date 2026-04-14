@@ -19,4 +19,3 @@ export class AuditLogger {
     return [...this.logs];
   }
 }
-

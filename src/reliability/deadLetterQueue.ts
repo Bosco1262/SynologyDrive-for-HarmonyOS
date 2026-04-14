@@ -15,4 +15,3 @@ export class DeadLetterQueue {
     return [...this.records];
   }
 }
-

@@ -28,4 +28,3 @@ export interface SyncTaskState {
   status: "idle" | "running" | "error";
   lastError?: string;
 }
-

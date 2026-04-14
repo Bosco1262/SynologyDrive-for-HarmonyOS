@@ -36,4 +36,3 @@ export function diffSnapshots(from: Snapshot, to: Snapshot): DiffResult {
 
   return { upserts, deletes };
 }
-

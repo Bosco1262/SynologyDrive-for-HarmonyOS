@@ -66,4 +66,3 @@ describe("SyncEngine", () => {
     expect(remoteAfterPush.entries.some((entry) => entry.path === "/local/b.txt")).toBe(true);
   });
 });
-

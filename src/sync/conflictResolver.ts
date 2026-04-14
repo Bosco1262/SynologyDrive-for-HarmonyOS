@@ -15,4 +15,3 @@ export class TimestampConflictResolver implements ConflictResolver {
     return local.modifiedAt > remote.modifiedAt ? "useLocal" : "useRemote";
   }
 }
-
