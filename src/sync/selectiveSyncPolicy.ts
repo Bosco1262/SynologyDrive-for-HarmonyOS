@@ -33,4 +33,3 @@ export class SelectiveSyncPolicy {
     return this.includes.some((prefix) => matchesPrefix(normalized, prefix));
   }
 }
-

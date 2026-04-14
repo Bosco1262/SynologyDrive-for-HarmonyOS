@@ -28,4 +28,3 @@ export class InMemoryNotificationCenter implements NotificationCenter {
     return [...this.notifications];
   }
 }
-

@@ -22,4 +22,3 @@ export class FixedRateSpeedLimiter implements SpeedLimiter {
     }
   }
 }
-
