@@ -4,6 +4,8 @@ export interface DriveApiGateway {
   listEntries(cursor: number): Promise<RemoteChanges>;
   upsertEntry(entry: DriveEntry): Promise<void>;
   deleteEntry(path: string): Promise<void>;
+  uploadEntryInChunks?(entry: DriveEntry, chunkSize: number): Promise<void>;
+  downloadEntryInChunks?(path: string, chunkSize: number): Promise<DriveEntry | undefined>;
 }
 
 const cloneEntry = (entry: DriveEntry): DriveEntry => ({ ...entry });
@@ -12,6 +14,7 @@ export class InMemoryDriveApiGateway implements DriveApiGateway {
   private entries = new Map<string, DriveEntry>();
   private changeLog: Array<{ cursor: number; entry: DriveEntry }> = [];
   private nextCursor = 1;
+  private chunkUploadCounts = new Map<string, number>();
 
   constructor(seed: DriveEntry[] = []) {
     for (const entry of seed) {
@@ -41,6 +44,22 @@ export class InMemoryDriveApiGateway implements DriveApiGateway {
       version: 0,
       deleted: true,
     });
+  }
+
+  async uploadEntryInChunks(entry: DriveEntry, chunkSize: number): Promise<void> {
+    const size = Math.max(0, entry.size ?? 0);
+    const chunks = Math.max(1, Math.ceil(size / Math.max(1, chunkSize)));
+    this.chunkUploadCounts.set(entry.path, chunks);
+    await this.upsertEntry(entry);
+  }
+
+  async downloadEntryInChunks(path: string, _chunkSize: number): Promise<DriveEntry | undefined> {
+    const entry = this.entries.get(path);
+    return entry ? cloneEntry(entry) : undefined;
+  }
+
+  getChunkUploadCount(path: string): number {
+    return this.chunkUploadCounts.get(path) ?? 0;
   }
 
   private appendChange(entry: DriveEntry): void {

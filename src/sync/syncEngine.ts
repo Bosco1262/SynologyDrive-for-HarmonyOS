@@ -7,6 +7,7 @@ import { RetryPolicy, withRetry } from "../reliability/retry";
 import { MetadataStore } from "../storage/metadataStore";
 import { DriveEntry } from "../types";
 import { ConflictResolver } from "./conflictResolver";
+import { ChunkTransferManager } from "./chunkTransfer";
 import { SelectiveSyncPolicy } from "./selectiveSyncPolicy";
 import { FixedRateSpeedLimiter, SpeedLimiter } from "./speedLimiter";
 
@@ -21,6 +22,7 @@ export interface SyncEngineDeps {
   retryPolicy: RetryPolicy;
   selectiveSync?: SelectiveSyncPolicy;
   speedLimiter?: SpeedLimiter;
+  chunkTransfer?: ChunkTransferManager;
   logger?: TaskLogger;
   notifications?: NotificationCenter;
 }
@@ -28,10 +30,12 @@ export interface SyncEngineDeps {
 export class SyncEngine {
   private readonly selectiveSync: SelectiveSyncPolicy;
   private readonly speedLimiter: SpeedLimiter;
+  private readonly chunkTransfer: ChunkTransferManager;
 
   constructor(private readonly deps: SyncEngineDeps) {
     this.selectiveSync = deps.selectiveSync ?? new SelectiveSyncPolicy();
     this.speedLimiter = deps.speedLimiter ?? new FixedRateSpeedLimiter();
+    this.chunkTransfer = deps.chunkTransfer ?? new ChunkTransferManager();
   }
 
   async initializeLocal(entries: DriveEntry[]): Promise<void> {
@@ -137,7 +141,8 @@ export class SyncEngine {
       return;
     }
     if (decision === "useRemote") {
-      localMap.set(remote.path, clone(remote));
+      const downloadedRemote = await this.chunkTransfer.download(this.deps.api, remote);
+      localMap.set(downloadedRemote.path, clone(downloadedRemote));
       return;
     }
     const conflictedPath = `${local.path}.conflict.${Date.now()}`;
@@ -165,7 +170,7 @@ export class SyncEngine {
 
   private async throttledUpsert(entry: DriveEntry): Promise<void> {
     await this.speedLimiter.throttle(entry.size ?? 0);
-    await this.deps.api.upsertEntry(entry);
+    await this.chunkTransfer.upload(this.deps.api, entry);
   }
 
   private async throttledDelete(path: string, bytes: number): Promise<void> {

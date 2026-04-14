@@ -28,3 +28,8 @@ export interface SyncTaskState {
   status: "idle" | "running" | "error";
   lastError?: string;
 }
+
+export interface SchedulerCheckpoint {
+  paused: boolean;
+  queuedTaskIds: string[];
+}

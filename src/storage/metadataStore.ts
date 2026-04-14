@@ -1,4 +1,4 @@
-import { DriveEntry, Snapshot, SyncTaskState } from "../types";
+import { DriveEntry, SchedulerCheckpoint, Snapshot, SyncTaskState } from "../types";
 
 const cloneEntry = (entry: DriveEntry): DriveEntry => ({ ...entry });
 
@@ -7,6 +7,7 @@ export class MetadataStore {
   private lastSyncedEntries = new Map<string, DriveEntry>();
   private cursor = 0;
   private taskState = new Map<string, SyncTaskState>();
+  private schedulerCheckpoint?: SchedulerCheckpoint;
 
   getLocalSnapshot(): Snapshot {
     return { entries: new Map([...this.localEntries].map(([k, v]) => [k, cloneEntry(v)])) };
@@ -55,5 +56,22 @@ export class MetadataStore {
   getTaskState(taskId: string): SyncTaskState | undefined {
     const state = this.taskState.get(taskId);
     return state ? { ...state } : undefined;
+  }
+
+  setSchedulerCheckpoint(checkpoint: SchedulerCheckpoint): void {
+    this.schedulerCheckpoint = {
+      paused: checkpoint.paused,
+      queuedTaskIds: [...checkpoint.queuedTaskIds],
+    };
+  }
+
+  getSchedulerCheckpoint(): SchedulerCheckpoint | undefined {
+    if (!this.schedulerCheckpoint) {
+      return undefined;
+    }
+    return {
+      paused: this.schedulerCheckpoint.paused,
+      queuedTaskIds: [...this.schedulerCheckpoint.queuedTaskIds],
+    };
   }
 }
