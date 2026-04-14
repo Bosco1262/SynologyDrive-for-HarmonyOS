@@ -1,5 +1,5 @@
 {
-  "name": "synologydrive-for--harmonyos",
+  "name": "synologydrive-for-harmonyos",
   "version": "1.0.0",
   "description": "MVP foundation for a HarmonyOS Synology Drive-like sync client",
   "main": "dist/index.js",
