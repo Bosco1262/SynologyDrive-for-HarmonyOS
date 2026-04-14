@@ -1,10 +1,14 @@
 import { DriveApiGateway } from "../api/driveApiGateway";
 import { EventBus } from "../core/eventBus";
+import { NotificationCenter } from "../notification/notificationCenter";
+import { TaskLogger } from "../observability/taskLogger";
 import { DeadLetterQueue } from "../reliability/deadLetterQueue";
 import { RetryPolicy, withRetry } from "../reliability/retry";
 import { MetadataStore } from "../storage/metadataStore";
 import { DriveEntry } from "../types";
 import { ConflictResolver } from "./conflictResolver";
+import { SelectiveSyncPolicy } from "./selectiveSyncPolicy";
+import { FixedRateSpeedLimiter, SpeedLimiter } from "./speedLimiter";
 
 const clone = (entry: DriveEntry): DriveEntry => ({ ...entry });
 
@@ -15,10 +19,20 @@ export interface SyncEngineDeps {
   events: EventBus;
   deadLetters: DeadLetterQueue;
   retryPolicy: RetryPolicy;
+  selectiveSync?: SelectiveSyncPolicy;
+  speedLimiter?: SpeedLimiter;
+  logger?: TaskLogger;
+  notifications?: NotificationCenter;
 }
 
 export class SyncEngine {
-  constructor(private readonly deps: SyncEngineDeps) {}
+  private readonly selectiveSync: SelectiveSyncPolicy;
+  private readonly speedLimiter: SpeedLimiter;
+
+  constructor(private readonly deps: SyncEngineDeps) {
+    this.selectiveSync = deps.selectiveSync ?? new SelectiveSyncPolicy();
+    this.speedLimiter = deps.speedLimiter ?? new FixedRateSpeedLimiter();
+  }
 
   async initializeLocal(entries: DriveEntry[]): Promise<void> {
     this.deps.metadata.setLocalEntries(entries);
@@ -28,12 +42,17 @@ export class SyncEngine {
   async runFullSync(): Promise<void> {
     await this.syncWithRetry(async () => {
       this.deps.events.emit("sync:start", { mode: "full" });
+      this.deps.logger?.log("info", "sync started", { mode: "full" });
+      this.deps.notifications?.notify("同步开始", "正在执行全量同步", "info");
       const cursor = this.deps.metadata.getCursor();
       const remote = await this.deps.api.listEntries(cursor);
       const localSnapshot = this.deps.metadata.getLocalSnapshot();
       const localMap = new Map(localSnapshot.entries);
 
       for (const remoteEntry of remote.entries) {
+        if (!this.selectiveSync.allows(remoteEntry.path)) {
+          continue;
+        }
         const local = localMap.get(remoteEntry.path);
         if (!local) {
           if (!remoteEntry.deleted) {
@@ -45,9 +64,12 @@ export class SyncEngine {
       }
 
       for (const [path, localEntry] of localMap) {
+        if (!this.selectiveSync.allows(path)) {
+          continue;
+        }
         const hasRemote = remote.entries.some((entry) => entry.path === path && !entry.deleted);
         if (!hasRemote && !localEntry.deleted) {
-          await this.deps.api.upsertEntry(clone(localEntry));
+          await this.throttledUpsert(clone(localEntry));
         }
       }
 
@@ -55,24 +77,34 @@ export class SyncEngine {
       this.deps.metadata.setLastSyncedEntries(localMap.values());
       this.deps.metadata.updateCursor(remote.cursor);
       this.deps.events.emit("sync:success", { mode: "full" });
+      this.deps.logger?.log("info", "sync finished", { mode: "full" });
+      this.deps.notifications?.notify("同步完成", "全量同步已完成", "info");
     });
   }
 
   async runIncrementalSync(localChanges: DriveEntry[]): Promise<void> {
     await this.syncWithRetry(async () => {
       this.deps.events.emit("sync:start", { mode: "incremental" });
+      this.deps.logger?.log("info", "sync started", { mode: "incremental" });
+      this.deps.notifications?.notify("同步开始", "正在执行增量同步", "info");
       for (const change of localChanges) {
+        if (!this.selectiveSync.allows(change.path)) {
+          continue;
+        }
         if (change.deleted) {
           this.deps.metadata.deleteLocalEntry(change.path);
-          await this.deps.api.deleteEntry(change.path);
+          await this.throttledDelete(change.path, change.size ?? 0);
           continue;
         }
         this.deps.metadata.upsertLocalEntry(change);
-        await this.deps.api.upsertEntry(change);
+        await this.throttledUpsert(change);
       }
 
       const remote = await this.deps.api.listEntries(this.deps.metadata.getCursor());
       for (const remoteEntry of remote.entries) {
+        if (!this.selectiveSync.allows(remoteEntry.path)) {
+          continue;
+        }
         if (remoteEntry.deleted) {
           this.deps.metadata.deleteLocalEntry(remoteEntry.path);
         } else {
@@ -82,6 +114,8 @@ export class SyncEngine {
       this.deps.metadata.updateCursor(remote.cursor);
       this.deps.metadata.setLastSyncedEntries(this.deps.metadata.getLocalSnapshot().entries.values());
       this.deps.events.emit("sync:success", { mode: "incremental" });
+      this.deps.logger?.log("info", "sync finished", { mode: "incremental" });
+      this.deps.notifications?.notify("同步完成", "增量同步已完成", "info");
     });
   }
 
@@ -99,7 +133,7 @@ export class SyncEngine {
     }
     const decision = this.deps.conflictResolver.decide(local, remote);
     if (decision === "useLocal") {
-      await this.deps.api.upsertEntry(local);
+      await this.throttledUpsert(local);
       return;
     }
     if (decision === "useRemote") {
@@ -123,7 +157,19 @@ export class SyncEngine {
       const message = error instanceof Error ? error.message : "unknown sync failure";
       this.deps.deadLetters.push(message, {});
       this.deps.events.emit("sync:error", { message });
+      this.deps.logger?.log("error", "sync failed", { message });
+      this.deps.notifications?.notify("同步失败", message, "error");
       throw error;
     }
+  }
+
+  private async throttledUpsert(entry: DriveEntry): Promise<void> {
+    await this.speedLimiter.throttle(entry.size ?? 0);
+    await this.deps.api.upsertEntry(entry);
+  }
+
+  private async throttledDelete(path: string, bytes: number): Promise<void> {
+    await this.speedLimiter.throttle(bytes);
+    await this.deps.api.deleteEntry(path);
   }
 }
