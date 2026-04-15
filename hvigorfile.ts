@@ -1,6 +1,6 @@
-import { hvigor, HvigorNode } from '@ohos/hvigor';
+import { appTasks } from '@ohos/hvigor-ohos-plugin';
 
-export default hvigor({
-  system: HvigorNode,
+export default {
+  system: appTasks,
   plugins: []
-});
+};
