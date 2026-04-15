@@ -16,7 +16,10 @@
         "name": "EntryAbility",
         "srcEntry": "./ets/entryability/EntryAbility.ets",
         "description": "entry ability",
-        "label": "Synology Drive Harmony"
+        "icon": "$media:icon",
+        "label": "$string:entry_ability_label",
+        "startWindowIcon": "$media:icon",
+        "startWindowBackground": "$color:start_window_background"
       }
     ]
   }
