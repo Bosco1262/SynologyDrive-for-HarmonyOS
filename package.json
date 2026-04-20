@@ -1,0 +1,28 @@
+{
+  "name": "synologydrive-for-harmonyos",
+  "version": "1.0.0",
+  "description": "MVP foundation for a HarmonyOS Synology Drive-like sync client",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bosco1262/SynologyDrive-for--HarmonyOS.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "Apache-2.0",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Bosco1262/SynologyDrive-for--HarmonyOS/issues"
+  },
+  "homepage": "https://github.com/Bosco1262/SynologyDrive-for--HarmonyOS#readme",
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  }
+}
